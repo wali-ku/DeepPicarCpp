@@ -127,7 +127,7 @@ Example:
                   1 frame / 33.3 msec (i.e., 30 Frames/sec)
 ```
 
-A pre-trained TensorFlow model and a test video-file is provided under the input folder of this directory and can be used for quicking testing the DeepPicar executable.
+A pre-trained TensorFlow model and a test video-file is provided under the input folder of this directory and can be used for quickly testing the DeepPicar executable.
 
 ### Documentation
 The code is written with inline Doxygen style comments. The provided Doxyfile in this repository can be used to create C++ class documentation in HTML format using the following command:

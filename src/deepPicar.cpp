@@ -22,27 +22,30 @@ DeepPicar::~DeepPicar ()
 void DeepPicar::run ()
 {
 	int frame_number = 0;
-	float inference_time;
+	float inference_time, response_time;
 	timepoint job_start_time;
 	float output_angle_rad, output_angle_deg;
+
+	/**
+	 * Synchronize if running as a virtual gang and then start the
+	 * DNN inference loop.
+	 */
+	if (rtgang) rtgang->sync ();
+	clock->mark_periodic_start ();
 
 	while (1) {
 		/** Record the job start time. */
 		job_start_time = clock->get_timestamp ();
-
-		/**
-		 * Synchronize if running as a virtual gang and then perform
-		 * DNN inference on the next image-frame from the input source.
-		 */
-		if (rtgang) rtgang->sync ();
 		output_angle_rad = tf->process (input->get_next_frame ());
 
 		/** Mark job as finished and calculate job duration. */
-		inference_time = clock->get_job_duration (job_start_time);
+		inference_time = clock->get_job_duration (job_start_time,
+							response_time);
 
 		/** Record stats for this job in the output log. */
 		output_angle_deg = 180.0 * output_angle_rad / M_PI;
-		log->record (frame_number, inference_time, output_angle_deg);
+		log->record (frame_number, inference_time, response_time,
+				output_angle_deg);
 
 		/**
 		  * Exit the inference loop if the required number of
@@ -53,7 +56,7 @@ void DeepPicar::run ()
 			break;
 
 		/** Sleep till it is time for the next job. */
-		clock->sleep_till_next_job (job_start_time);
+		clock->sleep_till_next_job ();
 	}
 
 	cout << "Execution Complete!" << endl;

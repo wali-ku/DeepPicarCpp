@@ -61,6 +61,9 @@ void print_usage (string exec_name)
 	cout << "  -l <limit>      Total number of frames to process.\n";
 	cout << "  -f <fps>        Frames per second. This value controls \n";
 	cout << "                  the period of execution for each job.\n";
+	cout << "  -t <period>     Period of execution in msec. Please note \n";
+	cout << "                  that if period is specified, the frame-rate \n";
+	cout << "                  value will be disregarded.\n";
 	cout << "  -v <id>         Virtual gang ID value. Providing this \n";
 	cout << "                  value signifies that this program is \n";
 	cout << "                  running as part of a virtual gang.\n";
@@ -68,6 +71,10 @@ void print_usage (string exec_name)
 	cout << "                  from co-running best-effort tasks.\n";
 	cout << "  -w <mbps>       Allowed threshold of memory write ops \n";
 	cout << "                  from co-running best-effort tasks.\n";
+	cout << "  -x <id>         Register as gang member with the kernel \n";
+	cout << "                  but do not synchronize gang members. This \n";
+	cout << "                  option is added to emulate baseline \n";
+	cout << "                  RT-Gang system.\n";
 	cout << "  -o              Console output switch. If provided then \n";
 	cout << "                  output log is printed to stdout.\n";
 	cout << "  -h              Show this help message\n";
@@ -91,11 +98,11 @@ void print_usage (string exec_name)
  * command-line arguments.
  */
 void check_cmd_args (string exec_name, string vid, string mdl,
-		int limit, int fps)
+		int limit, int fps, int period)
 
 {
 	if (vid != UNINIT_STRING && mdl != UNINIT_STRING &&
-		limit != UNINIT_INT && fps != UNINIT_INT)
+	    limit != UNINIT_INT && (fps != UNINIT_INT || period != 0))
 		return;
 
 	if (vid == UNINIT_STRING)
@@ -105,7 +112,7 @@ void check_cmd_args (string exec_name, string vid, string mdl,
 	else if (limit == UNINIT_INT)
 		cerr << "Please specify number of frames to process!\n";
 	else
-		cerr << "Please specify frame rate!\n";
+		cerr << "Please specify frame rate or period!\n";
 
 	print_usage (exec_name);
 
@@ -115,12 +122,13 @@ void check_cmd_args (string exec_name, string vid, string mdl,
 int main (int argc, char** argv)
 {
 	int opt;
-	int period_msec;
+	int period_msec = 0;
 	bool console_output = false;
 	int frame_rate = UNINIT_INT;
 	int frame_limit = UNINIT_INT;
 	int read_bw_mbps = UNINIT_INT;
 	int write_bw_mbps = UNINIT_INT;
+	bool compatibility_mode = false;
 	int virtual_gang_id = UNINIT_INT;
 	string video_file = UNINIT_STRING;
 	string model_name = UNINIT_STRING;
@@ -132,7 +140,7 @@ int main (int argc, char** argv)
 	RtgFactory *rtg_obj = NULL;
 
 	/** Retrieve command line arguments. */
-	while ((opt = getopt (argc, argv, "i:m:l:f:v:r:w:oh")) != -1) {
+	while ((opt = getopt (argc, argv, "i:m:l:f:t:v:r:w:x:oh")) != -1) {
 		switch (opt) {
 			case 'i':
 				video_file = optarg;
@@ -146,6 +154,9 @@ int main (int argc, char** argv)
 			case 'f':
 				frame_rate = stoi (optarg);
 				break;
+			case 't':
+				period_msec = stoi (optarg);
+				break;
 			case 'v':
 				virtual_gang_id = stoi (optarg);
 				break;
@@ -158,6 +169,10 @@ int main (int argc, char** argv)
 			case 'o':
 				console_output = true;
 				break;
+			case 'x':
+				compatibility_mode = true;
+				virtual_gang_id = stoi (optarg);
+				break;
 			default:
 				print_usage (argv [0]);
 		}
@@ -165,14 +180,7 @@ int main (int argc, char** argv)
 	}
 
 	check_cmd_args (argv [0], video_file, model_name,
-		frame_limit, frame_rate);
-
-	/** Instantiate class objects. */
-	period_msec = 1000 / frame_rate;
-	tf_obj = new TensorFactory (model_name);
-	clock_obj = new ClockFactory (period_msec);
-	input_obj = new InputFactory (video_file);
-	log_obj = new LogFactory (console_output);
+		frame_limit, frame_rate, period_msec);
 
 	/**
 	 * Instantiate RTG-Synch interface object if running as part of a
@@ -183,10 +191,27 @@ int main (int argc, char** argv)
 	 * library will interpret it as a direction to use default budget
 	 * values for co-running best-effort tasks.
 	 */
-	if (virtual_gang_id != UNINIT_INT)
-		rtg_obj = new RtgFactory (virtual_gang_id, read_bw_mbps,
-				write_bw_mbps);
+	if (virtual_gang_id != UNINIT_INT) {
+		if (compatibility_mode)
+			register_gang_with_kernel (virtual_gang_id,
+					read_bw_mbps, 0);
+		else
+			rtg_obj = new RtgFactory (virtual_gang_id, read_bw_mbps,
+					write_bw_mbps);
+	}
 
+	/** Determine period from fps if it is not explicitly specified. */
+	if (period_msec == 0)
+		period_msec = 1000 / frame_rate;
+
+	/** Instantiate class objects. */
+	tf_obj = new TensorFactory (model_name);
+	clock_obj = new ClockFactory (period_msec);
+	input_obj = new InputFactory (video_file);
+	log_obj = new LogFactory (console_output);
+
+
+	/** Instantiate Deep-Picar. */
 	dcar = new DeepPicar (input_obj, tf_obj, clock_obj, log_obj, rtg_obj,
 			frame_limit);
 

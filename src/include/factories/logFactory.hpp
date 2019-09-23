@@ -10,6 +10,8 @@
 
 #include <iostream>
 #include <algorithm>
+#include <cstdlib>
+#include <cstdint>
 #include <iomanip>
 #include <sstream>
 #include <fstream>
@@ -21,13 +23,15 @@ using namespace std;
 
 class LogFactory
 {
-	vector<float>	time_log;
 	ofstream	log_file;
+	int		num_of_records;
 	bool		print_to_console;
+	double		cum_compute_time;
+	double		cum_response_time;
 
 	void print_stats ();
 	void print_horizontal_line (char symbol);
-	void record_header (string f1, string f2, string f3);
+	void record_header (string f1, string f2, string f3, string f4);
 
 	public:
 		/**
@@ -52,8 +56,8 @@ class LogFactory
 		 * Logging helper function. Record the given statistics into
 		 * the log file.
 		 */
-		void record (int frame_number, float duration,
-			float output_angle);
+		void record (int frame_number, float compute_time,
+				float response_time, float output_angle);
 };
 
 #endif /* __LOG_FACTORY_HPP__ */

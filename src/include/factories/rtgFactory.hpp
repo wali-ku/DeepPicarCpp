@@ -16,6 +16,10 @@ class RtgFactory
 	pthread_barrier_t	*barrier;
 
 	public:
+		int			gid;
+		bool			rtgang;
+		bool			leader;
+
 		/**
 		 * Default Constructor. Should not be used.
 		 */
@@ -26,7 +30,9 @@ class RtgFactory
 		 * the provided virtual gang id and memory bandwidth
 		 * thresholds.
 		 */
-		RtgFactory (int id, int read_bw_mbps, int write_bw_mbps);
+		RtgFactory (int id, bool rtgang_mode, bool gang_leader,
+				int read_bw_mbps, int write_bw_mbps,
+				unsigned long cmap);
 
 		/**
 		 * Synchronization Method. Use RTG-Synch framework to

@@ -16,24 +16,29 @@ DeepPicar::~DeepPicar ()
 	delete log;
 	delete clock;
 	delete input;
-	if (rtgang) delete rtgang;
+	delete rtgang;
 }
 
 void DeepPicar::run ()
 {
 	int frame_number = 0;
-	float inference_time, response_time;
 	timepoint job_start_time;
+	float inference_time, response_time;
 	float output_angle_rad, output_angle_deg;
 
 	/**
 	 * Synchronize if running as a virtual gang and then start the
 	 * DNN inference loop.
 	 */
-	if (rtgang) rtgang->sync ();
+	rtgang->sync ();
 	clock->mark_periodic_start ();
 
 	while (1) {
+#ifdef RTG_SYNCH_DEBUG
+		if (rtgang->leader)
+			debug_log_ftrace ("gid=%d: job_start\n", rtgang->gid);
+#endif
+
 		/** Record the job start time. */
 		job_start_time = clock->get_timestamp ();
 		output_angle_rad = tf->process (input->get_next_frame ());
@@ -51,7 +56,6 @@ void DeepPicar::run ()
 		  * Exit the inference loop if the required number of
 		  * image-frames have been processed.
 		  */
-
 		if (++frame_number >= frames_to_process)
 			break;
 

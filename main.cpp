@@ -75,6 +75,7 @@ void print_usage (string exec_name)
 	cout << "                  but do not synchronize gang members. This \n";
 	cout << "                  option is added to emulate baseline \n";
 	cout << "                  RT-Gang system.\n";
+	cout << "  -g              Mark task as gang leader.\n";
 	cout << "  -o              Console output switch. If provided then \n";
 	cout << "                  output log is printed to stdout.\n";
 	cout << "  -h              Show this help message\n";
@@ -123,11 +124,14 @@ int main (int argc, char** argv)
 {
 	int opt;
 	int period_msec = 0;
+	bool gang_leader = false;
 	bool console_output = false;
+
 	int frame_rate = UNINIT_INT;
 	int frame_limit = UNINIT_INT;
 	int read_bw_mbps = UNINIT_INT;
 	int write_bw_mbps = UNINIT_INT;
+	unsigned long cmap = UNINIT_INT;
 	bool compatibility_mode = false;
 	int virtual_gang_id = UNINIT_INT;
 	string video_file = UNINIT_STRING;
@@ -140,7 +144,7 @@ int main (int argc, char** argv)
 	RtgFactory *rtg_obj = NULL;
 
 	/** Retrieve command line arguments. */
-	while ((opt = getopt (argc, argv, "i:m:l:f:t:v:r:w:x:oh")) != -1) {
+	while ((opt = getopt (argc, argv, "i:m:l:f:t:v:r:w:c:x:goh")) != -1) {
 		switch (opt) {
 			case 'i':
 				video_file = optarg;
@@ -166,8 +170,14 @@ int main (int argc, char** argv)
 			case 'w':
 				write_bw_mbps = stoi (optarg);
 				break;
+			case 'c':
+				cmap = parse_color_string (optarg);
+				break;
 			case 'o':
 				console_output = true;
+				break;
+			case 'g':
+				gang_leader = true;
 				break;
 			case 'x':
 				compatibility_mode = true;
@@ -191,14 +201,16 @@ int main (int argc, char** argv)
 	 * library will interpret it as a direction to use default budget
 	 * values for co-running best-effort tasks.
 	 */
-	if (virtual_gang_id != UNINIT_INT) {
-		if (compatibility_mode)
-			register_gang_with_kernel (virtual_gang_id,
-					read_bw_mbps, 0);
-		else
-			rtg_obj = new RtgFactory (virtual_gang_id, read_bw_mbps,
-					write_bw_mbps);
+	if (virtual_gang_id == UNINIT_INT) {
+		compatibility_mode = true;
+		virtual_gang_id = 1;
+		write_bw_mbps = 0;
+		read_bw_mbps = 0;
+		cmap = 0;
 	}
+
+	rtg_obj = new RtgFactory (virtual_gang_id, compatibility_mode,
+			gang_leader, read_bw_mbps, write_bw_mbps, cmap);
 
 	/** Determine period from fps if it is not explicitly specified. */
 	if (period_msec == 0)
